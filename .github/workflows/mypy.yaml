@@ -13,7 +13,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v3
         with:
-          python-version: 3.8
+          python-version: 3.10
           cache: "pip"
 
       - name: Install
@@ -35,8 +35,8 @@ jobs:
       - name: Fake a version
         run: |
           repo=$(echo ${{ github.event.repository.name }} | sed 's/_/\//g')
-          echo "__all__ = ['__version__']" > python/lsst/${repo}/version.py
-          echo "__version__ = '0.0.1'" >> python/lsst/${repo}/version.py
+          echo "__all__ = ['__version__']" > "python/lsst/${repo}/version.py"
+          echo "__version__ = '0.0.1'" >> "python/lsst/${repo}/version.py"
 
       - name: Change to source directory and run mypy
         run: mypy python/lsst
