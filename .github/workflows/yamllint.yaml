@@ -1,0 +1,28 @@
+name: Lint YAML Files
+
+on:
+  workflow_call:
+    inputs:
+      args:
+        description: 'Arguments passed to yamllint'
+        default: '.'
+        type: string
+        required: false
+
+jobs:
+  yamllint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.8
+          cache: "pip"
+
+      - name: Install
+        run: pip install yamllint
+
+      - name: Run YAML linter
+        run: yamllint ${{ inputs.args }}

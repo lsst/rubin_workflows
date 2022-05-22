@@ -1,0 +1,33 @@
+name: formatting
+
+on:
+  workflow_call:
+
+jobs:
+  formating:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.8
+          cache: "pip"
+
+      - name: Install isort and black
+        run: pip install isort black
+
+      - name: Run isort
+        run: |
+          isort --check-only \
+               $(test -e bin.src/ && echo 'bin/src/') \
+               $(test -e python/ && echo 'python/') \
+               $(test -e tests/ && echo 'tests/')
+
+      - name: Run black
+        run: | 
+          black --check --verbose --diff \
+               $(test -e bin.src/ && echo 'bin/src/*') \
+               $(test -e python/ && echo 'python/') \
+               $(test -e tests/ && echo 'tests/')

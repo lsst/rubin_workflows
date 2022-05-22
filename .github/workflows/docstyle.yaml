@@ -1,0 +1,27 @@
+name: lint docstrings
+
+on:
+  workflow_call:
+    inputs:
+      args:
+        description: 'Arguments passed to docstyle'
+        type: string
+        required: true
+
+jobs:
+  docstyle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.8
+          cache: "pip"
+
+      - name: Install
+        run: pip install pydocstyle
+
+      - name: Run linter
+        run: pydocstyle  {{ inputs.args }}
