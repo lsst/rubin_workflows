@@ -13,6 +13,13 @@ jobs:
       - name: Set up python
         uses: ./.github/workflows/setup-python.yaml
 
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.8
+          cache: "pip"
+
+
       - name: Install
         run: pip install mypy pydantic
 
