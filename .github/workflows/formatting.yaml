@@ -28,6 +28,6 @@ jobs:
       - name: Run black
         run: | 
           black --check --verbose --diff \
-               $(test -e bin.src/ && echo 'bin/src/*') \
+               $(test -e bin.src/ && echo 'bin.src/*') \
                $(test -e python/ && echo 'python/') \
                $(test -e tests/ && echo 'tests/')
