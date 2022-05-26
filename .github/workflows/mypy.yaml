@@ -34,13 +34,18 @@ jobs:
 
       - name: Fake a version
         run: |
+          prefix="python/lsst"
+          if [ ! -e ${prefix} ]
+          then
+            prefix="python"
+          fi  
           repo=${{ github.event.repository.name }}
-          if [ ! -e ${repo} ]
+          if [ ! -e "${prefix}/${repo}" ]
           then
             repo=$(echo "${repo}" | sed 's/_/\//g')
           fi
-          echo "__all__ = ['__version__']" > "python/lsst/${repo}/version.py"
-          echo "__version__ = '0.0.1'" >> "python/lsst/${repo}/version.py"
+          echo "__all__ = ['__version__']" > "${prefix}/${repo}/version.py"
+          echo "__version__ = '0.0.1'" >> "${prefix}/${repo}/version.py"
 
       - name: Change to source directory and run mypy
         run: mypy python/lsst
