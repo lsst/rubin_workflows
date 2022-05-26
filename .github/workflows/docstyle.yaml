@@ -23,5 +23,5 @@ jobs:
       - name: Install
         run: pip install pydocstyle
 
-      - name: Run linter
+      - name: Run docstyle
         run: pydocstyle  {{ inputs.args }}
