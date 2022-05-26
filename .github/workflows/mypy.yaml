@@ -34,7 +34,11 @@ jobs:
 
       - name: Fake a version
         run: |
-          repo=$(echo ${{ github.event.repository.name }} | sed 's/_/\//g')
+          repo=${{ github.event.repository.name }}
+          if [ ! -e ${repo} ]
+          then
+            repo=$(echo "${repo}" | sed 's/_/\//g')
+          fi
           echo "__all__ = ['__version__']" > "python/lsst/${repo}/version.py"
           echo "__version__ = '0.0.1'" >> "python/lsst/${repo}/version.py"
 
