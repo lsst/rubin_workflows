@@ -16,7 +16,7 @@ jobs:
           cache: "pip"
 
       - name: Install
-        run: pip install flake8==3.8.4
+        run: pip install flake8==4.0.0
 
       - name: Run linter
         run: flake8
