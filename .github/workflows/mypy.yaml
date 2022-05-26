@@ -22,7 +22,7 @@ jobs:
       - name: Install types dependencies
         run: |
           if [ -e types.txt ]
-          then 
+          then
             pip install -r types.txt
           fi
       - name: Install lsst dependencies
@@ -32,13 +32,13 @@ jobs:
              pip install -r requirements.txt
           fi
 
-      - name: Fake a version
+      - name: Run mypy
         run: |
           prefix="python/lsst"
-          if [ ! -e ${prefix} ]
+          if [ ! -e "${prefix}" ]
           then
             prefix="python"
-          fi  
+          fi
           repo=${{ github.event.repository.name }}
           if [ ! -e "${prefix}/${repo}" ]
           then
@@ -46,6 +46,4 @@ jobs:
           fi
           echo "__all__ = ['__version__']" > "${prefix}/${repo}/version.py"
           echo "__version__ = '0.0.1'" >> "${prefix}/${repo}/version.py"
-
-      - name: Change to source directory and run mypy
-        run: mypy "${prefix}"
+          mypy "${prefix}"
