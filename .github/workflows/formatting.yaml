@@ -21,7 +21,7 @@ jobs:
       - name: Run isort
         run: |
           isort --check-only \
-               $(test -e bin.src/ && echo 'bin/src/') \
+               $(test -e bin.src/ && echo 'bin.src/') \
                $(test -e python/ && echo 'python/') \
                $(test -e tests/ && echo 'tests/')
 
