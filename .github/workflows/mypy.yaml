@@ -48,4 +48,4 @@ jobs:
           echo "__version__ = '0.0.1'" >> "${prefix}/${repo}/version.py"
 
       - name: Change to source directory and run mypy
-        run: mypy python/lsst
+        run: mypy "${prefix}"
