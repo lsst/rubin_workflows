@@ -25,7 +25,7 @@ jobs:
       - name: Install Python prereqs
         run: |
           pip install \
-            pytest
+            pytest \
             pytest-flake8
 
       - name: Install Ubuntu dependencies
