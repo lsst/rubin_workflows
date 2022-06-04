@@ -12,6 +12,11 @@ jobs:
           # Need to clone everything for the git tags.
           fetch-depth: 0
 
+      - name: Update ubuntu
+        run: |
+          sudo apt-get update
+          sudo apt-get install crudini
+
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
@@ -27,6 +32,22 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+
+      - name: Install Ubuntu dependencies
+        run: |
+          if [ -e build_docs.ini ]
+          then
+            pkg=$(crudini --get build_docs.ini ubuntu install 2> /dev/null  ) && \
+              sudo apt-get install ${pkg}
+          fi
+
+      - name: Install additional pip dependencies
+        run: |
+          if [ -e build_docs.ini ]
+          then
+            pkg=$(crudini --get build_docs.ini pip install 2> /dev/null  ) && \
+              pip install ${pkg}
+          fi
 
       - name: Build and install
         run: pip install -v .
