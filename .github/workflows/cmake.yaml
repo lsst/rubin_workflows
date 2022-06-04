@@ -32,16 +32,16 @@ jobs:
         run: |
           if [ -e cmake.ini ]
           then
-            pkg=$(crudini --get cmake.ini ubuntu install 2> /dev/null  ) && \
-              sudo apt-get install ${pkg}
+            pkg=$(crudini --get cmake.ini ubuntu install 2>/dev/null) && \
+              sudo apt-get install ${pkg} || true
           fi
 
       - name: Install additional pip dependencies
         run: |
           if [ -e cmake.ini ]
           then
-            pkg=$(crudini --get cmake.ini pip install 2> /dev/null  ) && \
-              pip install ${pkg}
+            pkg=$(crudini --get cmake.ini pip install 2>/dev/null) && \
+              pip install ${pkg} || true
           fi
 
       - name: CMake configure
