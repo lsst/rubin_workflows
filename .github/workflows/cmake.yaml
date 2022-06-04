@@ -1,0 +1,67 @@
+name: cmake
+
+on:
+  workflow_call:
+
+jobs:
+  cmake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # Need to clone everything for the git tags.
+          fetch-depth: 0
+
+      - name: Update ubuntu
+        run: |
+          sudo apt-get update
+          sudo apt-get install crudini
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.10"
+
+      - name: Install Python prereqs
+        run: |
+          pip install \
+            pytest
+            pytest-flake8
+
+      - name: Install Ubuntu dependencies
+        run: |
+          if [ -e cmake.ini ]
+          then
+            pkg=$(crudini --get cmake.ini ubuntu install 2> /dev/null  ) && \
+              sudo apt-get install ${pkg}
+          fi
+
+      - name: Install additional pip dependencies
+        run: |
+          if [ -e cmake.ini ]
+          then
+            pkg=$(crudini --get cmake.ini pip install 2> /dev/null  ) && \
+              pip install ${pkg}
+          fi
+
+      - name: CMake configure
+        run: |
+          cmake \
+            -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/build/install \
+            -B ${{github.workspace}}/build
+
+      - name: CMake build
+        run: cmake --build ${{github.workspace}}/build --parallel `nproc`
+
+      - name: CMake test
+        working-directory: ${{github.workspace}}/build
+        run: ctest
+
+      - name: CMake install
+        run: cmake --build ${{github.workspace}}/build --target install
+
+      - name: Python tests
+        env:
+          PYTHONPATH: ${{github.workspace}}/build/install/python
+          LD_LIBRARY_PATH: ${{github.workspace}}/build/install/lib
+        run: pytest -r a -v
