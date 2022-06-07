@@ -38,7 +38,7 @@ jobs:
           if [ -e build_docs.ini ]
           then
             pkg=$(crudini --get build_docs.ini ubuntu install 2>/dev/null) && \
-              sudo apt-get install ${pkg}
+              sudo apt-get install ${pkg} || true
           fi
 
       - name: Install additional pip dependencies
@@ -46,7 +46,7 @@ jobs:
           if [ -e build_docs.ini ]
           then
             pkg=$(crudini --get build_docs.ini pip install 2>/dev/null) && \
-              pip install ${pkg}
+              pip install ${pkg} || true
           fi
 
       - name: Build and install
