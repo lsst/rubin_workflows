@@ -43,10 +43,12 @@ jobs:
           pip install -r requirements.txt
 
       - name: Install Ubuntu dependencies
-        run: [ ! -z "${{ inputs.ubuntu_deps }}" ] && sudo apt-get install "${{ inputs.ubuntu_deps }}"
+        run: |
+          [ ! -z "${{ inputs.ubuntu_deps }}" ] && sudo apt-get install "${{ inputs.ubuntu_deps }}"
 
       - name: Install additional pip dependencies
-        run: [ ! -z "${{ inputs.pip_deps }}" ] && sudo apt-get install "${{ inputs.pip_deps }}"
+        run: |
+          [ ! -z "${{ inputs.pip_deps }}" ] && sudo apt-get install "${{ inputs.pip_deps }}"
 
       - name: Build and install
         run: pip install -v .
