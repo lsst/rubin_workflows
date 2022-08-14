@@ -6,7 +6,9 @@ on:
       args:
         description: 'Arguments passed to docstyle'
         type: string
-        required: true
+        default: 'python/lsst/'
+        type: string
+        required: false
 
 jobs:
   docstyle:

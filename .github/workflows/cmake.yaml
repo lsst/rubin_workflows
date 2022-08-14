@@ -2,6 +2,15 @@ name: cmake
 
 on:
   workflow_call:
+    inputs:
+      ubuntu_deps:
+        required: false
+        type: string
+        default: ""
+      pip_deps:
+        required: false
+        type: string
+        default: ""
 
 jobs:
   cmake:
@@ -29,20 +38,10 @@ jobs:
             pytest-flake8
 
       - name: Install Ubuntu dependencies
-        run: |
-          if [ -e cmake.ini ]
-          then
-            pkg=$(crudini --get cmake.ini ubuntu install 2>/dev/null) && \
-              sudo apt-get install ${pkg} || true
-          fi
+        run: [ ! -z "${{ inputs.ubuntu_deps }}" ] && sudo apt-get install "${{ inputs.ubuntu_deps }}"
 
       - name: Install additional pip dependencies
-        run: |
-          if [ -e cmake.ini ]
-          then
-            pkg=$(crudini --get cmake.ini pip install 2>/dev/null) && \
-              pip install ${pkg} || true
-          fi
+        run: [ ! -z "${{ inputs.pip_deps }}" ] && sudo apt-get install "${{ pip.ubuntu_deps }}"
 
       - name: CMake configure
         run: |

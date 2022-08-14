@@ -2,6 +2,15 @@ name: docs
 
 on:
   workflow_call:
+    inputs:
+      ubuntu_deps:
+        required: false
+        type: string
+        default: ""
+      pip_deps:
+        required: false
+        type: string
+        default: ""
 
 jobs:
   build_sphinx_docs:
@@ -34,20 +43,10 @@ jobs:
           pip install -r requirements.txt
 
       - name: Install Ubuntu dependencies
-        run: |
-          if [ -e build_docs.ini ]
-          then
-            pkg=$(crudini --get build_docs.ini ubuntu install 2>/dev/null) && \
-              sudo apt-get install ${pkg} || true
-          fi
+        run: [ ! -z "${{ inputs.ubuntu_deps }}" ] && sudo apt-get install "${{ inputs.ubuntu_deps }}"
 
       - name: Install additional pip dependencies
-        run: |
-          if [ -e build_docs.ini ]
-          then
-            pkg=$(crudini --get build_docs.ini pip install 2>/dev/null) && \
-              pip install ${pkg} || true
-          fi
+        run: [ ! -z "${{ inputs.pip_deps }}" ] && sudo apt-get install "${{ inputs.pip_deps }}"
 
       - name: Build and install
         run: pip install -v .
