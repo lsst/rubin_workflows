@@ -4,10 +4,12 @@ on:
   workflow_call:
     inputs:
       ubuntu_deps:
+        description: 'Ubuntu packages to be installed'
         required: false
         type: string
         default: ""
       pip_deps:
+        description: 'PIP dependencies to be installed'
         required: false
         type: string
         default: ""
