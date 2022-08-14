@@ -50,7 +50,7 @@ jobs:
 
       - name: Install additional pip dependencies
         if: ${{ inputs.pip_deps != '' }}
-        run: sudo apt-get install "${{ inputs.pip_deps }}"
+        run: pip install "${{ inputs.pip_deps }}"
 
       - name: Build and install
         run: pip install -v .
