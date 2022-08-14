@@ -41,11 +41,11 @@ jobs:
 
       - name: Install Ubuntu dependencies
         if: ${{ inputs.ubuntu_deps != '' }}
-        run: sudo apt-get install "${{ inputs.ubuntu_deps }}"
+        run: sudo apt-get install ${{ inputs.ubuntu_deps }}
 
       - name: Install additional pip dependencies
         if: ${{ inputs.pip_deps != '' }}
-        run: pip install "${{ inputs.pip_deps }}"
+        run: pip install ${{ inputs.pip_deps }}
 
       - name: CMake configure
         run: |
