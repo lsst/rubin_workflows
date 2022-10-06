@@ -9,6 +9,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          # Need to clone everything for the git tags.
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v3
@@ -17,7 +20,7 @@ jobs:
           cache: "pip"
 
       - name: Install
-        run: pip install mypy pydantic
+        run: pip install mypy pydantic lsst-versions
 
       - name: Install types dependencies
         run: |
@@ -39,11 +42,5 @@ jobs:
           then
             prefix="python"
           fi
-          repo=${{ github.event.repository.name }}
-          if [ ! -e "${prefix}/${repo}" ]
-          then
-            repo=$(echo "${repo}" | sed 's/_/\//g')
-          fi
-          echo "__all__ = ['__version__']" > "${prefix}/${repo}/version.py"
-          echo "__version__ = '0.0.1'" >> "${prefix}/${repo}/version.py"
+          lsst-version . --write-version
           mypy "${prefix}"
