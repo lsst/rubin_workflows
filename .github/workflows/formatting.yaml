@@ -15,7 +15,7 @@ jobs:
           python-version: "3.10"
 
       - name: Install isort and black
-        run: pip install isort black
+        run: pip install isort<5.11 black
 
       - name: Run isort
         run: |
