@@ -22,5 +22,5 @@ jobs:
       - name: Install
         run: pip install pydocstyle tomli
 
-      - name: Run docstyle
-        run: pydocstyle  {{ inputs.args }}
+      - name: Run docstyle with parameters ${{ inputs.args }}
+        run: pydocstyle  ${{ inputs.args }}
