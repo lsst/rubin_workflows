@@ -29,6 +29,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install wheel
 
+      - name: Install graphviz
+        run: sudo apt-get install graphviz
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
