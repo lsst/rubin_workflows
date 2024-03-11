@@ -2,6 +2,12 @@ name: Run mypy
 
 on:
   workflow_call:
+    inputs:
+      mypy_package:
+        description: "The name and version number of the mypy package that will be passed to pip.  Example: mypy==1.9.0"
+        default: mypy
+        required: false
+        type: string
 
 jobs:
   mypy:
@@ -20,7 +26,7 @@ jobs:
           cache: "pip"
 
       - name: Install
-        run: pip install mypy pydantic lsst-versions
+        run: pip install '${{ inputs.mypy_package }}' pydantic lsst-versions
 
       - name: Install types dependencies
         run: |
