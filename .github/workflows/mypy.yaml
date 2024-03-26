@@ -14,31 +14,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           # Need to clone everything for the git tags.
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
 
       - name: Install
-        run: pip install '${{ inputs.mypy_package }}' pydantic lsst-versions
+        run: |
+          pip install uv
+          uv pip install --system '${{ inputs.mypy_package }}' pydantic lsst-versions
 
       - name: Install types dependencies
         run: |
           if [ -e types.txt ]
           then
-            pip install -r types.txt
+            uv pip install --system -r types.txt
           fi
       - name: Install lsst dependencies
         run: |
           if [ -e requirements.txt ]
           then
-             pip install -r requirements.txt
+            uv pip install --system -r requirements.txt
           fi
 
       - name: Run mypy
