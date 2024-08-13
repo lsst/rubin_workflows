@@ -1,2 +1,3 @@
-# rubin_workflows 
+# rubin_workflows
+
 Workflows for GitHub Actions.
