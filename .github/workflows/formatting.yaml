@@ -15,18 +15,33 @@ jobs:
           python-version: "3.12"
 
       - name: Install isort and black
-        run: pip install isort black
+        run: |
+          pip install uv
+          uv pip install --system isort black ruff
 
-      - name: Run isort
+      - name: Check package sorting
         run: |
           isort --df --check-only \
                $(test -e bin.src/ && echo 'bin.src/') \
                $(test -e python/ && echo 'python/') \
                $(test -e tests/ && echo 'tests/')
 
-      - name: Run black
+      - name: Check formatting
         run: |
-          black --check --verbose --diff \
+          # Decide to run ruff check if there is a ruff format configuration.
+          use_ruff=""
+          if [ -e pyproject.toml ]; then
+              if [ ! -z $(grep tool.ruff.format pyproject.toml) ]; then
+                 use_ruff="yes"
+              fi
+          fi
+          if [ -z ${use_ruff} ]; then
+            echo Running black
+            black --check --verbose --diff \
                $(test -e bin.src/ && echo 'bin.src/*') \
                $(test -e python/ && echo 'python/') \
                $(test -e tests/ && echo 'tests/')
+          else
+            echo Running ruff format
+            ruff format --check --diff
+          fi
