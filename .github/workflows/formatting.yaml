@@ -4,6 +4,70 @@ on:
   workflow_call:
 
 jobs:
+  check-tooling:
+    outputs:
+      use_ruff_format: ${{ steps.tooling.outputs.use_ruff_format }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check which tooling to use
+        id: tooling
+        run: |
+          # Decide to run ruff check if there is a ruff format configuration.
+          use_ruff_format="false"
+          if [ -e pyproject.toml ]; then
+            echo "Found pyproject.toml"
+            echo "found: $(grep tool.ruff.format pyproject.toml)"
+            if [ ! -z $(grep tool.ruff.format pyproject.toml) ]; then
+              use_ruff_format="true"
+            fi
+          fi
+          if [ "${use_ruff_format}" == "true" ]; then
+            echo "Using ruff format"
+            echo "use_ruff_format=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "Using black for formatting"
+            echo "use_ruff_format=false" >> "${GITHUB_OUTPUT}"
+          fi
+  format_with_ruff:
+    needs: [check-tooling]
+    runs-on: ubuntu-latest
+    if: "${{ needs.check-tooling.outputs.use_ruff_format == 'true' }}"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install uv
+          uv pip install --system ruff
+      - name: Run Ruff format
+        run: ruff format --check --diff .
+  format_with_black:
+    needs: [check-tooling]
+    runs-on: ubuntu-latest
+    if: "${{ needs.check-tooling.outputs.use_ruff_format == 'false' }}"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install uv
+          uv pip install --system black
+      - name: Run Ruff format
+        run: |
+          black --check --verbose --diff \
+            $(test -e bin.src/ && echo 'bin.src/*') \
+            $(test -e python/ && echo 'python/') \
+            $(test -e tests/ && echo 'tests/')
   formatting:
     runs-on: ubuntu-latest
     steps:
@@ -14,10 +78,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install isort and black
+      - name: Install isort
         run: |
           pip install uv
-          uv pip install --system isort black ruff
+          uv pip install --system isort
 
       - name: Check package sorting
         run: |
@@ -25,23 +89,3 @@ jobs:
                $(test -e bin.src/ && echo 'bin.src/') \
                $(test -e python/ && echo 'python/') \
                $(test -e tests/ && echo 'tests/')
-
-      - name: Check formatting
-        run: |
-          # Decide to run ruff check if there is a ruff format configuration.
-          use_ruff=""
-          if [ -e pyproject.toml ]; then
-              if [ ! -z $(grep tool.ruff.format pyproject.toml) ]; then
-                 use_ruff="yes"
-              fi
-          fi
-          if [ -z ${use_ruff} ]; then
-            echo Running black
-            black --check --verbose --diff \
-               $(test -e bin.src/ && echo 'bin.src/*') \
-               $(test -e python/ && echo 'python/') \
-               $(test -e tests/ && echo 'tests/')
-          else
-            echo Running ruff format
-            ruff format --check --diff
-          fi
