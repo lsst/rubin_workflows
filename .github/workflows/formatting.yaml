@@ -110,7 +110,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install
+      - name: Install flake8
         run: |
           python -m pip install uv
           uv pip install --system flake8==7.1 flake8-github-annotations
