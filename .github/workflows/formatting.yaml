@@ -20,14 +20,14 @@ jobs:
           use_ruff_check="false"
           use_isort="true"
           if [ -e pyproject.toml ]; then
-            if [ ! -z $(grep tool.ruff.format pyproject.toml) ]; then
+            if [ $(grep -c tool.ruff.format pyproject.toml) -gt 0 ]; then
               use_ruff_format="true"
             fi
-            if [ ! -z $(grep tool.ruff.lint pyproject.toml) ]; then
+            if [ $(grep -c tool.ruff.lint pyproject.toml) -gt 0 ]; then
               use_ruff_check="true"
             fi
             # No need to run isort if ruff check is already doing it.
-            if [ ! -z $(grep tool.ruff.lint.isort pyproject.toml) ]; then
+            if [ $(grep -c tool.ruff.lint.isort pyproject.toml) -gt 0 ]; then
               use_isort="false"
               use_ruff_check="true"
             fi
