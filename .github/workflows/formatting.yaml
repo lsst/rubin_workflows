@@ -1,4 +1,4 @@
-name: formatting
+name: formatting and linting checks
 
 on:
   workflow_call:
@@ -7,6 +7,8 @@ jobs:
   check-tooling:
     outputs:
       use_ruff_format: ${{ steps.tooling.outputs.use_ruff_format }}
+      use_ruff_check: ${{ steps.tooling.outputs.use_ruff_check }}
+      use_isort: ${{ steps.tooling.outputs.use_isort }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,11 +17,19 @@ jobs:
         run: |
           # Decide to run ruff check if there is a ruff format configuration.
           use_ruff_format="false"
+          use_ruff_check="false"
+          use_isort="true"
           if [ -e pyproject.toml ]; then
-            echo "Found pyproject.toml"
-            echo "found: $(grep tool.ruff.format pyproject.toml)"
             if [ ! -z $(grep tool.ruff.format pyproject.toml) ]; then
               use_ruff_format="true"
+            fi
+            if [ ! -z $(grep tool.ruff.lint pyproject.toml) ]; then
+              use_ruff_check="true"
+            fi
+            # No need to run isort if ruff check is already doing it.
+            if [ ! -z $(grep tool.ruff.lint.isort pyproject.toml) ]; then
+              use_isort="false"
+              use_ruff_check="true"
             fi
           fi
           if [ "${use_ruff_format}" == "true" ]; then
@@ -28,6 +38,19 @@ jobs:
           else
             echo "Using black for formatting"
             echo "use_ruff_format=false" >> "${GITHUB_OUTPUT}"
+          fi
+          if [ "${use_ruff_check}" == "true" ]; then
+            echo "Using ruff check for linting"
+            echo "use_ruff_check=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "Using flake8 for linting"
+            echo "use_ruff_check=false" >> "${GITHUB_OUTPUT}"
+          fi
+          if [ "${use_isort}" == "true" ]; then
+            echo "Using isort tool"
+            echo "use_isort=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "Using ruff check for isort"
           fi
   format_with_ruff:
     needs: [check-tooling]
@@ -62,14 +85,42 @@ jobs:
         run: |
           python -m pip install uv
           uv pip install --system black
-      - name: Run Ruff format
+      - name: Run black format
         run: |
           black --check --verbose --diff \
             $(test -e bin.src/ && echo 'bin.src/*') \
             $(test -e python/ && echo 'python/') \
             $(test -e tests/ && echo 'tests/')
-  formatting:
+  lint_with_ruff:
+    needs: [check-tooling]
     runs-on: ubuntu-latest
+    if: "${{ needs.check-tooling.outputs.use_ruff_check == 'true' }}"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chartboost/ruff-action@v1
+  lint_with_flake8:
+    needs: [check-tooling]
+    runs-on: ubuntu-latest
+    if: "${{ needs.check-tooling.outputs.use_ruff_check == 'false' }}"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install uv
+          uv pip install --system flake8==7.1 flake8-github-annotations
+
+      - name: Run linter
+        run: flake8 --format github
+  isort:
+    needs: [check-tooling]
+    runs-on: ubuntu-latest
+    if: "${{ needs.check-tooling.outputs.use_isort == 'true' }}"
     steps:
       - uses: actions/checkout@v4
 
