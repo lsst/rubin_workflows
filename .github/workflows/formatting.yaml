@@ -1,32 +1,172 @@
-name: formatting
+name: formatting and linting checks
 
 on:
   workflow_call:
+    inputs:
+      ruff_version:
+        description: "The version number pip specification of the ruff package that might be installed to run format checks. Empty string will install newest version.  Example: '0.9.4' or '<1.0.0'."
+        default: ">=0.9,<0.9.20"
+        required: false
+        type: string
+      flake8_version:
+        description: "The version number pip specification of the flake8 package that might be installed. Empty string will install newest version. Example: '==7.1'"
+        default: "==7.1.1"
+        required: false
+        type: string
+      black_version:
+        description: "The version number pip specification of the black package that might be installed. Empty string will install newest version. Example: '==25.1' or '>=25'"
+        default: ">=25.1,<26.0"
+        required: false
+        type: string
+      isort_version:
+        description: "The version number pip specification of the isort package that might be installed. Empty string will install newest version. Example: '==6'"
+        default: ">=6,<7"
+        required: false
+        type: string
 
 jobs:
-  formatting:
+  check-tooling:
+    outputs:
+      use_ruff_format: ${{ steps.tooling.outputs.use_ruff_format }}
+      use_ruff_check: ${{ steps.tooling.outputs.use_ruff_check }}
+      use_isort: ${{ steps.tooling.outputs.use_isort }}
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install yq
+        # Need to use snap to get a new enough version of yq.
+        run: sudo snap install yq
+      - name: Check which tooling to use
+        id: tooling
+        run: |
+          # Decide to run ruff check if there is a ruff format configuration.
+          use_ruff_format="false"
+          use_ruff_check="false"
+          use_ruff_isort="true"
+          if [ -e pyproject.toml ]; then
+            use_ruff_format=$(yq -oy pyproject.toml | yq '.tool.ruff | has("format")')
+            use_ruff_check=$(yq -oy pyproject.toml | yq '.tool.ruff | has("lint")')
+            # Avoid error if no select block. Only check for ruff isort
+            # if ruff check is enabled.
+            if [ ${use_ruff_check} == "true" ]; then
+              use_ruff_isort=$(yq -oy pyproject.toml | yq '.tool.ruff.lint.select | contains(["I"])')
+            fi
+          fi
+          if [ "${use_ruff_format}" == "true" ]; then
+            echo "Using ruff format"
+            echo "use_ruff_format=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "Using black for formatting"
+            echo "use_ruff_format=false" >> "${GITHUB_OUTPUT}"
+          fi
+          if [ "${use_ruff_check}" == "true" ]; then
+            echo "Using ruff check for linting"
+            echo "use_ruff_check=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "Using flake8 for linting"
+            echo "use_ruff_check=false" >> "${GITHUB_OUTPUT}"
+          fi
+          if [ "${use_ruff_isort}" == "true" ]; then
+            echo "Using ruff check for isort"
+          else
+            echo "Using isort tool"
+            echo "use_isort=true" >> "${GITHUB_OUTPUT}"
+          fi
+  format_with_ruff:
+    needs: [check-tooling]
+    runs-on: ubuntu-latest
+    if: "${{ needs.check-tooling.outputs.use_ruff_format == 'true' }}"
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install uv
+          uv pip install --system 'ruff${{ inputs.ruff_version }}'
+      - name: Run Ruff format
+        run: ruff format --check --diff .
+  format_with_black:
+    needs: [check-tooling]
+    runs-on: ubuntu-latest
+    if: "${{ needs.check-tooling.outputs.use_ruff_format == 'false' }}"
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Install isort and black
-        run: pip install isort black
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      - name: Run isort
+      - name: Install dependencies
+        run: |
+          python -m pip install uv
+          uv pip install --system 'black${{ inputs.black_version }}'
+      - name: Run black format
+        run: |
+          black --check --verbose --diff \
+            $(test -e bin.src/ && echo 'bin.src/*') \
+            $(test -e python/ && echo 'python/') \
+            $(test -e tests/ && echo 'tests/')
+  lint_with_ruff:
+    needs: [check-tooling]
+    runs-on: ubuntu-latest
+    if: "${{ needs.check-tooling.outputs.use_ruff_check == 'true' }}"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install uv
+          uv pip install --system 'ruff${{ inputs.ruff_version }}'
+      - name: Run Ruff check
+        run: ruff check --output-format github .
+  lint_with_flake8:
+    needs: [check-tooling]
+    runs-on: ubuntu-latest
+    if: "${{ needs.check-tooling.outputs.use_ruff_check == 'false' }}"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install flake8
+        run: |
+          python -m pip install uv
+          uv pip install --system 'flake8${{ inputs.flake8_version }}' flake8-github-annotations
+
+      - name: Run linter
+        run: flake8 --format github
+  isort:
+    needs: [check-tooling]
+    runs-on: ubuntu-latest
+    if: "${{ needs.check-tooling.outputs.use_isort == 'true' }}"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install isort
+        run: |
+          pip install uv
+          uv pip install --system 'isort${{ inputs.isort_version }}'
+
+      - name: Check package sorting
         run: |
           isort --df --check-only \
                $(test -e bin.src/ && echo 'bin.src/') \
-               $(test -e python/ && echo 'python/') \
-               $(test -e tests/ && echo 'tests/')
-
-      - name: Run black
-        run: |
-          black --check --verbose --diff \
-               $(test -e bin.src/ && echo 'bin.src/*') \
                $(test -e python/ && echo 'python/') \
                $(test -e tests/ && echo 'tests/')
