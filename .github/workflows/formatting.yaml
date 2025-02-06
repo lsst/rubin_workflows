@@ -2,6 +2,27 @@ name: formatting and linting checks
 
 on:
   workflow_call:
+    inputs:
+      ruff_version:
+        description: "The version number pip specification of the ruff package that might be installed to run format checks. Empty string will install newest version.  Example: '0.9.4' or '<1.0.0'."
+        default: ">=0.9,<0.9.20"
+        required: false
+        type: string
+      flake8_version:
+        description: "The version number pip specification of the flake8 package that might be installed. Empty string will install newest version. Example: '==7.1'"
+        default: "==7.1.1"
+        required: false
+        type: string
+      black_version:
+        description: "The version number pip specification of the black package that might be installed. Empty string will install newest version. Example: '==25.1' or '>=25'"
+        default: ">=25.1,<26.0"
+        required: false
+        type: string
+      isort_version:
+        description: "The version number pip specification of the isort package that might be installed. Empty string will install newest version. Example: '==6'"
+        default: ">=6,<7"
+        required: false
+        type: string
 
 jobs:
   check-tooling:
@@ -65,7 +86,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install uv
-          uv pip install --system ruff
+          uv pip install --system 'ruff${{ inputs.ruff_version }}'
       - name: Run Ruff format
         run: ruff format --check --diff .
   format_with_black:
@@ -83,7 +104,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install uv
-          uv pip install --system black
+          uv pip install --system 'black${{ inputs.black_version }}'
       - name: Run black format
         run: |
           black --check --verbose --diff \
@@ -96,7 +117,17 @@ jobs:
     if: "${{ needs.check-tooling.outputs.use_ruff_check == 'true' }}"
     steps:
       - uses: actions/checkout@v4
-      - uses: chartboost/ruff-action@v1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install uv
+          uv pip install --system 'ruff${{ inputs.ruff_version }}'
+      - name: Run Ruff check
+        run: ruff check --output-format github .
   lint_with_flake8:
     needs: [check-tooling]
     runs-on: ubuntu-latest
@@ -112,7 +143,7 @@ jobs:
       - name: Install flake8
         run: |
           python -m pip install uv
-          uv pip install --system flake8==7.1 flake8-github-annotations
+          uv pip install --system 'flake8${{ inputs.flake8_version }}' flake8-github-annotations
 
       - name: Run linter
         run: flake8 --format github
@@ -131,7 +162,7 @@ jobs:
       - name: Install isort
         run: |
           pip install uv
-          uv pip install --system isort
+          uv pip install --system 'isort${{ inputs.isort_version }}'
 
       - name: Check package sorting
         run: |
