@@ -12,24 +12,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install yq
+        # Need to use snap to get a new enough version of yq.
+        run: sudo snap install yq
       - name: Check which tooling to use
         id: tooling
         run: |
           # Decide to run ruff check if there is a ruff format configuration.
           use_ruff_format="false"
           use_ruff_check="false"
-          use_isort="true"
+          use_ruff_isort="true"
           if [ -e pyproject.toml ]; then
-            if [ $(grep -c tool.ruff.format pyproject.toml) -gt 0 ]; then
-              use_ruff_format="true"
-            fi
-            if [ $(grep -c tool.ruff.lint pyproject.toml) -gt 0 ]; then
-              use_ruff_check="true"
-            fi
-            # No need to run isort if ruff check is already doing it.
-            if [ $(grep -c tool.ruff.lint.isort pyproject.toml) -gt 0 ]; then
-              use_isort="false"
-              use_ruff_check="true"
+            use_ruff_format=$(yq -oy pyproject.toml | yq '.tool.ruff | has("format")')
+            use_ruff_check=$(yq -oy pyproject.toml | yq '.tool.ruff | has("lint")')
+            # Avoid error if no select block. Only check for ruff isort
+            # if ruff check is enabled.
+            if [ ${use_ruff_check} == "true" ]; then
+              use_ruff_isort=$(yq -oy pyproject.toml | yq '.tool.ruff.lint.select | contains(["I"])')
             fi
           fi
           if [ "${use_ruff_format}" == "true" ]; then
@@ -46,11 +45,11 @@ jobs:
             echo "Using flake8 for linting"
             echo "use_ruff_check=false" >> "${GITHUB_OUTPUT}"
           fi
-          if [ "${use_isort}" == "true" ]; then
+          if [ "${use_ruff_isort}" == "true" ]; then
+            echo "Using ruff check for isort"
+          else
             echo "Using isort tool"
             echo "use_isort=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "Using ruff check for isort"
           fi
   format_with_ruff:
     needs: [check-tooling]
