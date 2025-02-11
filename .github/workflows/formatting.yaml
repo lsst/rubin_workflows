@@ -40,7 +40,7 @@ jobs:
       - name: curl
         uses: sozo-design/curl@v1.0.2
         with:
-          args: -O https://raw.githubusercontent.com/lsst/rubin_workflows/tickets/DM-48886/bin/determine-tooling
+          args: -O https://raw.githubusercontent.com/lsst/rubin_workflows/main/bin/determine-tooling
       - name: Check which tooling to use
         id: tooling
         run: |
