@@ -42,7 +42,7 @@ jobs:
           # Decide to run ruff check if there is a ruff format configuration.
           use_ruff_format="false"
           use_ruff_check="false"
-          use_ruff_isort="true"
+          use_ruff_isort="false"
           if [ -e pyproject.toml ]; then
             use_ruff_format=$(yq -oy pyproject.toml | yq '.tool.ruff | has("format")')
             use_ruff_check=$(yq -oy pyproject.toml | yq '.tool.ruff | has("lint")')
