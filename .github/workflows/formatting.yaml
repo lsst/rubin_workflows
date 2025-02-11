@@ -27,55 +27,38 @@ on:
 jobs:
   check-tooling:
     outputs:
-      use_ruff_format: ${{ steps.tooling.outputs.use_ruff_format }}
-      use_ruff_check: ${{ steps.tooling.outputs.use_ruff_check }}
-      use_isort: ${{ steps.tooling.outputs.use_isort }}
+      format_tool: ${{ steps.tooling.outputs.format_tool }}
+      lint_tool: ${{ steps.tooling.outputs.lint_tool }}
+      isort_tool: ${{ steps.tooling.outputs.isort_tool }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install yq
-        # Need to use snap to get a new enough version of yq.
-        run: sudo snap install yq
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: curl
+        uses: sozo-design/curl@v1.0.2
+        with:
+          args: -O https://raw.githubusercontent.com/lsst/rubin_workflows/tickets/DM-48886/bin/determine-tooling
       - name: Check which tooling to use
         id: tooling
         run: |
-          # Decide to run ruff check if there is a ruff format configuration.
-          use_ruff_format="false"
-          use_ruff_check="false"
-          use_ruff_isort="true"
-          if [ -e pyproject.toml ]; then
-            use_ruff_format=$(yq -oy pyproject.toml | yq '.tool.ruff | has("format")')
-            use_ruff_check=$(yq -oy pyproject.toml | yq '.tool.ruff | has("lint")')
-            # Avoid error if no select block. Only check for ruff isort
-            # if ruff check is enabled.
-            if [ ${use_ruff_check} == "true" ]; then
-              use_ruff_isort=$(yq -oy pyproject.toml | yq '.tool.ruff.lint.select | contains(["I"])')
-            fi
-          fi
-          if [ "${use_ruff_format}" == "true" ]; then
-            echo "Using ruff format"
-            echo "use_ruff_format=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "Using black for formatting"
-            echo "use_ruff_format=false" >> "${GITHUB_OUTPUT}"
-          fi
-          if [ "${use_ruff_check}" == "true" ]; then
-            echo "Using ruff check for linting"
-            echo "use_ruff_check=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "Using flake8 for linting"
-            echo "use_ruff_check=false" >> "${GITHUB_OUTPUT}"
-          fi
-          if [ "${use_ruff_isort}" == "true" ]; then
-            echo "Using ruff check for isort"
-          else
-            echo "Using isort tool"
-            echo "use_isort=true" >> "${GITHUB_OUTPUT}"
-          fi
+          format_tool=$(python determine-tooling format)
+          echo "format tool: ${format_tool}"
+          echo "format_tool=${format_tool}" >> "${GITHUB_OUTPUT}"
+
+          lint_tool=$(python determine-tooling lint)
+          echo "lint tool: ${lint_tool}"
+          echo "lint_tool=${lint_tool}" >> "${GITHUB_OUTPUT}"
+
+          isort_tool=$(python determine-tooling isort)
+          echo "isort tool: ${isort_tool}"
+          echo "isort_tool=${isort_tool}" >> "${GITHUB_OUTPUT}"
   format_with_ruff:
     needs: [check-tooling]
     runs-on: ubuntu-latest
-    if: "${{ needs.check-tooling.outputs.use_ruff_format == 'true' }}"
+    if: "${{ needs.check-tooling.outputs.format_tool == 'ruff' }}"
     steps:
       - uses: actions/checkout@v4
 
@@ -92,7 +75,7 @@ jobs:
   format_with_black:
     needs: [check-tooling]
     runs-on: ubuntu-latest
-    if: "${{ needs.check-tooling.outputs.use_ruff_format == 'false' }}"
+    if: "${{ needs.check-tooling.outputs.format_tool == 'black' }}"
     steps:
       - uses: actions/checkout@v4
 
@@ -114,7 +97,7 @@ jobs:
   lint_with_ruff:
     needs: [check-tooling]
     runs-on: ubuntu-latest
-    if: "${{ needs.check-tooling.outputs.use_ruff_check == 'true' }}"
+    if: "${{ needs.check-tooling.outputs.lint_tool == 'ruff' }}"
     steps:
       - uses: actions/checkout@v4
 
@@ -131,7 +114,7 @@ jobs:
   lint_with_flake8:
     needs: [check-tooling]
     runs-on: ubuntu-latest
-    if: "${{ needs.check-tooling.outputs.use_ruff_check == 'false' }}"
+    if: "${{ needs.check-tooling.outputs.lint_tool == 'flake8' }}"
     steps:
       - uses: actions/checkout@v4
 
@@ -150,7 +133,7 @@ jobs:
   isort:
     needs: [check-tooling]
     runs-on: ubuntu-latest
-    if: "${{ needs.check-tooling.outputs.use_isort == 'true' }}"
+    if: "${{ needs.check-tooling.outputs.isort_tool == 'isort' }}"
     steps:
       - uses: actions/checkout@v4
 
