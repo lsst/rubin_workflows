@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+"""Determine lint/formatter tool to use."""
+from __future__ import annotations
+
+import argparse
+import os.path
+import sys
+import tomllib
+from typing import Any
+
+parser = argparse.ArgumentParser(
+    description="Find which tool should be used for the given tool type"
+)
+parser.add_argument(
+    "tool",
+    help="Type of tool to decide upon.",
+    choices=["lint", "format", "isort"],
+)
+args = parser.parse_args()
+
+toml_file = "pyproject.toml"
+
+# format and isort require configuration check.
+# flake8 is always the default for "lint".
+if os.path.exists(toml_file):
+    with open(toml_file, "rb") as fd:
+        toml = tomllib.load(fd)
+else:
+    toml = {}
+
+
+def has_key(content: dict[Any], key: str) -> Any | None:
+    """Return the contents at the given hierarchy.
+
+    Parameters
+    ----------
+    content : `dict`
+        The dictionary representing the TOML file.
+    key : `str`
+        Dot-separated key into the hierarchy of the TOML file.
+
+    Returns
+    -------
+    value : `typing.Any`
+        The item at the position of the hierarchy or `None` if that key
+        is not found.
+    """
+    for k in key.split("."):
+        content = content.get(k)
+        if content is None:
+            return None
+    return content
+
+
+match args.tool:
+    case "lint":
+        if has_key(toml, "tool.ruff.lint") is not None:
+            print("ruff")
+        else:
+            print("flake8")
+    case "format":
+        if has_key(toml, "tool.ruff.format") is not None:
+            print("ruff")
+        elif has_key(toml, "tool.black") is not None:
+            print("black")
+        else:
+            print("none")
+    case "isort":
+        if (select := has_key(toml, "tool.ruff.lint.select")) is not None and "I" in select:
+            print("ruff")
+        elif has_key(toml, "tool.isort") is not None:
+            print("isort")
+        else:
+            print("none")
+    case _:
+        raise ValueError(f"Unexpected tooling type: {args.tool}")
+
+sys.exit(0)
