@@ -8,6 +8,11 @@ on:
         default: mypy
         required: false
         type: string
+      folders:
+        description: "List of folders to check, by default only python/ is checked.  Example: \"python test\""
+        default: "python"
+        required: false
+        type: string
 
 jobs:
   mypy:
@@ -45,10 +50,5 @@ jobs:
 
       - name: Run mypy
         run: |
-          prefix="python/lsst"
-          if [ ! -e "${prefix}" ]
-          then
-            prefix="python"
-          fi
           lsst-version . --write-version
-          mypy "${prefix}"
+          mypy ${{ inputs.folders }}
