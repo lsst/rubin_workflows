@@ -5,12 +5,12 @@ on:
     inputs:
       ruff_version:
         description: "The version number pip specification of the ruff package that might be installed to run format checks. Empty string will install newest version.  Example: '0.9.4' or '<1.0.0'."
-        default: ">=0.9,<0.9.20"
+        default: ">=0.13,<0.13.20"
         required: false
         type: string
       flake8_version:
         description: "The version number pip specification of the flake8 package that might be installed. Empty string will install newest version. Example: '==7.1'"
-        default: "==7.1.1"
+        default: "==7.3.0"
         required: false
         type: string
       black_version:
