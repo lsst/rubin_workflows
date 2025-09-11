@@ -24,7 +24,8 @@ jobs:
 
       - name: Install Python prereqs
         run: |
-          pip install \
+          pip install uv
+          uv pip install --system \
             pytest \
             pytest-flake8
 
@@ -41,7 +42,7 @@ jobs:
           if [ -e cmake.ini ]
           then
             pkg=$(crudini --get cmake.ini pip install 2>/dev/null) && \
-              pip install ${pkg} || true
+              uv pip install --system ${pkg} || true
           fi
 
       - name: CMake configure
