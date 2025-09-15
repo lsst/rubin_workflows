@@ -7,7 +7,7 @@ jobs:
   cmake:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Need to clone everything for the git tags.
           fetch-depth: 0
@@ -18,13 +18,14 @@ jobs:
           sudo apt-get install crudini
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Install Python prereqs
         run: |
-          pip install \
+          pip install uv
+          uv pip install --system \
             pytest \
             pytest-flake8
 
@@ -41,7 +42,7 @@ jobs:
           if [ -e cmake.ini ]
           then
             pkg=$(crudini --get cmake.ini pip install 2>/dev/null) && \
-              pip install ${pkg} || true
+              uv pip install --system ${pkg} || true
           fi
 
       - name: CMake configure
