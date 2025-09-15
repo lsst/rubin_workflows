@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     if: "${{ needs.check-tooling.outputs.format_tool == 'ruff' }}"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -77,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     if: "${{ needs.check-tooling.outputs.format_tool == 'black' }}"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     if: "${{ needs.check-tooling.outputs.lint_tool == 'ruff' }}"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -116,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     if: "${{ needs.check-tooling.outputs.lint_tool == 'flake8' }}"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -135,7 +135,7 @@ jobs:
     runs-on: ubuntu-latest
     if: "${{ needs.check-tooling.outputs.isort_tool == 'isort' }}"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v6
