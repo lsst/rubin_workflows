@@ -8,26 +8,19 @@ jobs:
 
     steps:
       - name: Check that 'main' or backport branch 'vX.Y.x' are not merged into the development branch
-        uses: gsactions/commit-message-checker@v2
-        with:
-          excludeDescription: "true"  # optional: this excludes the description body of a pull request
-          excludeTitle: "true"  # optional: this excludes the title of a pull request
-          checkAllCommitMessages: "true"  # optional: this checks all commits associated with a pull request
-          accessToken: ${{ secrets.GITHUB_TOKEN }}  # github access token is only required if checkAllCommitMessages is true
-          # Check for patterns that emerge from
-          # 1) git pull origin main
-          # 2) git pull origin vX.Y.x (backport branch)
-          # 3) hitting "Update branch" button on GitHub.
-          pattern: ^(?!Merge branch '(main|v\d+\.\d+\.x)')
-          error: |
-            "This step failed because you merged the 'main' or release backport branch 'vX.Y.x' into the development branch,
-             likely by clicking the 'Update branch' button on the GitHub pull request page.
+        env:
+            GH_TOKEN: ${{ github.token }}
+            PR_NUMBER: ${{ github.event.pull_request.number }}
+            REPO: ${{ github.repository }}
+        run: |
+            bad_commits="$(
+              gh api "repos/${REPO}/pulls/${PR_NUMBER}/commits" --paginate \
+                --jq '.[] | select(.commit.message | test("^Merge branch '\''(main|v[0-9]+\\.[0-9]+\\.x)'\''")) | .sha + " " + (.commit.message | split("\n")[0])'
+            )"
 
-             In order to bring this pull request to a mergeable state,
-             update the 'main' or backport branch locally and rebase against it.
-             See https://developer.lsst.io/work/flow.html#pushing-code for detailed instructions.
-
-             To avoid this error in the future, rebase against the latest 'main' or backport branch
-             by following the instructions above, or
-             use the little down arrow on the right side of 'Update branch' and click
-             'Update with rebase' option."
+            if [ -n "$bad_commits" ]; then
+              echo "$bad_commits"
+              echo "This step failed because you merged the 'main' or release backport branch 'vX.Y.x' into the development branch."
+              echo "Please rebase against the latest 'main' or backport branch instead."
+              exit 1
+            fi
