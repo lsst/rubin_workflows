@@ -15,12 +15,21 @@ jobs:
         run: |
             bad_commits="$(
               gh api "repos/${REPO}/pulls/${PR_NUMBER}/commits" --paginate \
-                --jq '.[] | select(.commit.message | test("^Merge branch '\''(main|v[0-9]+\\.[0-9]+\\.x)'\''")) | .sha + " " + (.commit.message | split("\n")[0])'
+                --jq '.[] | select(.commit.message | test("^Merge branch '\''(main|v\\d+\\.\\d+\\.x)'\''")) | .sha + " " + (.commit.message | split("\n")[0])'
             )"
 
             if [ -n "$bad_commits" ]; then
+              echo "::error::Merge commits detected:"
               echo "$bad_commits"
-              echo "This step failed because you merged the 'main' or release backport branch 'vX.Y.x' into the development branch."
-              echo "Please rebase against the latest 'main' or backport branch instead."
+              echo ""
+              echo "This step failed because you merged the 'main' or release backport branch 'vX.Y.x' into the development branch,"
+              echo "likely by clicking the 'Update branch' button on the GitHub pull request page."
+              echo ""
+              echo "To fix this, update the 'main' or backport branch locally and rebase against it:"
+              echo "  git fetch origin"
+              echo "  git rebase origin/main"
+              echo ""
+              echo "See https://developer.lsst.io/work/flow.html#pushing-code for detailed instructions."
+              echo "To avoid this in the future, use 'Update with rebase' from the dropdown next to the Update branch button."
               exit 1
             fi
