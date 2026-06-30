@@ -1,0 +1,44 @@
+name: "Check commits can be merged"
+on:
+  workflow_call:
+
+jobs:
+  do-not-merge-checker:
+    runs-on: ubuntu-latest
+
+    steps:
+         - uses: actions/checkout@v7
+           with:
+             fetch-depth: 0
+
+         - name: Check that there are no commits that should not be merged
+           env:
+             PR_NUMBER: ${{ github.event.pull_request.number }}
+             REPO: ${{ github.repository }}
+           run: |
+             bad_commits="$(
+               gh api "repos/${REPO}/pulls/${PR_NUMBER}/commits" --paginate \
+                 --jq '.[] | select(.commit.message | test("DO NOT MERGE"; "i")) | "\\(.sha) \\(.commit.message | split("\\n")[0])"'
+             )
+
+             if [ -n "$bad_commits" ]; then
+               echo "::error::Commit messages containing 'DO NOT MERGE' detected:"
+               echo "$bad_commits"
+               echo ""
+               echo "This step failed because there is a commit containing the text"
+               echo "'DO NOT MERGE'. Remove this commit from the branch before merging"
+               echo "or change the commit summary."
+               exit 1
+             fi
+
+         - name: Check requirements.txt for branches
+           shell: bash
+           run: |
+             FILE=requirements.txt
+             MATCH=tickets/DM-
+             if grep -q $MATCH $FILE
+             then
+               echo "Ticket branches found in $FILE:"
+               grep -n $MATCH $FILE
+               exit 1
+             fi
