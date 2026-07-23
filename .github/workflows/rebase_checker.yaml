@@ -152,32 +152,56 @@ jobs:
   dependency-checker:
     if: inputs.dependency-checker
     runs-on: ubuntu-latest
+    env:
+      UV_VERSION: "0.11.x"
+      UV_PYTHON: "3.13"
+      UV_LOCKED: "1"
+      UV_FROZEN: "1"
     steps:
       - name: Checkout caller repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           fetch-depth: 0
-
-      # This is a rough approach to the problem and doesn't necessarily work
-      # with uv-based projects because it's perfectly valid to find a false
-      # positive match in a `[tool.*]` configuration in pyproject.toml.
-      # It also won't identify dependencies that are pinned to a commit hash
-      # instead of a branch name (as with `uv export`), or where the ticket
-      # branch has been URL-encoded (as with `uv.lock`).
-      - name: Check Dependencies for Development Branches
-        shell: bash
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Compile Requirements to Lockfile
+        if: hashFiles('requirements.txt') != ''
         run: |
-          DEPFILES=(requirements.txt requirements/main.in requirements/test.in)
-          MATCH="tickets/DM-"
-          for f in "${DEPFILES[@]}"
-          do
-           if $( test -f $f && grep -q "$MATCH" "$f" )
-           then
-            echo "Ticket branches found in $f:"
-            grep -n "$MATCH" "$f"
-            exit 1
-           fi
-          done
+          uv pip compile --no-annotate --no-header -o pylock.toml requirements.txt 
+      - name: Export UV Lockfile as Pylock
+        if: hashFiles('uv.lock') != ''
+        run: |
+          uv export --all-packages --all-extras --no-annotate --no-header --format pylock.toml -o pylock.toml
+      
+      - name: Analyze Dependencies
+        if: hashFiles('pylock.toml') != ''
+        run: |
+          $(uv python find) <<PY
+          import tomllib
+          import re
+          import sys
+
+          BAD_REFS = re.compile(r"(^tickets/DM-.*$|^u/.*$)")
+          BAD_DEPS = []
+
+          with open("pylock.toml", "rb") as f:
+              lock = tomllib.load(f)
+
+          for package in filter(lambda x: x["name"].startswith("lsst"), lock.get("packages", [])):
+              if package.get("vcs", {}).get("type") == "git":
+                  revision = package["vcs"].get("requested-revision")
+                  if revision and BAD_REFS.fullmatch(revision):
+                      BAD_DEPS.append((package["name"], revision))
+
+          if BAD_DEPS:
+              print("Disallowed git vcs dependencies found: ")
+              for package, ref in BAD_DEPS:
+                  print(f"{package}: {ref}")
+              sys.exit(1)
+          PY
 
   rebase_checker:
     needs:
