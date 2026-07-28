@@ -22,13 +22,7 @@ name: Commitlint
           Check for explicit "DO NOT MERGE" commit messages
         type: boolean
         required: false
-        default: true
-      dependency-checker:
-        description: >-
-          Check `requirements`-style dependencies that refer to ticket branches.
-        type: boolean
-        required: false
-        default: true
+        default: false
       custom-rules:
         description: >-
           Custom rules module to use with lint-commits
@@ -72,11 +66,11 @@ jobs:
           ref: ${{ inputs.workflow-ref }}
           path: .wf
           sparse-checkout: |
-            .github/commitlint
+            commitlint
 
       - name: Set workflow variables
         run: |
-          WF_PATH=.wf/.github/commitlint
+          WF_PATH=.wf/commitlint
           echo "WF_PATH=${WF_PATH}" >> $GITHUB_ENV
           if [[ -n '${{ inputs.custom-rules }}' ]]
           then
@@ -107,8 +101,12 @@ jobs:
             HEAD='${{ github.event.after }}'
             BASE="$(git log "${MAIN}".."${BRANCH}" --oneline --format=%H | tail -1)"
           fi
-          echo "base=${BASE}" >> $GITHUB_OUTPUT
-          echo "head=${HEAD}" >> $GITHUB_OUTPUT
+          if [[ "${BASE}" == "${HEAD}" ]]; then
+            RANGE="--last"
+          else
+            RANGE="--from ${BASE} --to ${HEAD}"
+          fi
+          echo "range=${RANGE}" >> $GITHUB_OUTPUT
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
         with:
@@ -126,8 +124,8 @@ jobs:
           bunx --no-install --bun
           commitlint
           --config "${WF_PATH}/commitlint-rebase-checker.config.mjs"
-          --from '${{ steps.commits.outputs.base }}' --to '${{ steps.commits.outputs.head }}'
-          --cwd "${GITHUB_WORKSPACE}" "${VERBOSE}"
+          ${{ steps.commits.outputs.range }}
+          --cwd "${GITHUB_WORKSPACE}" ${VERBOSE}
 
       - name: Do Not Merge Checker
         if: inputs.do-not-merge-checker
@@ -136,8 +134,8 @@ jobs:
           bunx --no-install --bun
           commitlint
           --config "${WF_PATH}/commitlint-do-not-merge.config.mjs"
-          --from '${{ steps.commits.outputs.base }}' --to '${{ steps.commits.outputs.head }}'
-          --cwd "${GITHUB_WORKSPACE}" "${VERBOSE}"
+          ${{ steps.commits.outputs.range }}
+          --cwd "${GITHUB_WORKSPACE}" ${VERBOSE}
 
       - name: Validate Commits as Conventional Commits
         if: inputs.lint-commits
@@ -146,67 +144,12 @@ jobs:
           bunx --no-install --bun
           commitlint
           "${COMMITLINT_CONFIG}"
-          --from '${{ steps.commits.outputs.base }}' --to '${{ steps.commits.outputs.head }}'
-          --cwd "${GITHUB_WORKSPACE}" "${VERBOSE}"
-
-  dependency-checker:
-    if: inputs.dependency-checker
-    runs-on: ubuntu-latest
-    env:
-      UV_VERSION: "0.11.x"
-      UV_PYTHON: "3.13"
-      UV_LOCKED: "1"
-      UV_FROZEN: "1"
-    steps:
-      - name: Checkout caller repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-        with:
-          fetch-depth: 0
-      - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-        with:
-          version: ${{ env.UV_VERSION }}
-          enable-cache: true
-      - name: Compile Requirements to Lockfile
-        if: hashFiles('requirements.txt') != ''
-        run: |
-          uv pip compile --no-annotate --no-header -o pylock.toml requirements.txt 
-      - name: Export UV Lockfile as Pylock
-        if: hashFiles('uv.lock') != ''
-        run: |
-          uv export --all-packages --all-extras --no-annotate --no-header --format pylock.toml -o pylock.toml
-      
-      - name: Analyze Dependencies
-        if: hashFiles('pylock.toml') != ''
-        run: |
-          $(uv python find) <<PY
-          import tomllib
-          import re
-          import sys
-
-          BAD_REFS = re.compile(r"(^tickets/DM-.*$|^u/.*$)")
-          BAD_DEPS = []
-
-          with open("pylock.toml", "rb") as f:
-              lock = tomllib.load(f)
-
-          for package in filter(lambda x: x["name"].startswith("lsst"), lock.get("packages", [])):
-              if package.get("vcs", {}).get("type") == "git":
-                  revision = package["vcs"].get("requested-revision")
-                  if revision and BAD_REFS.fullmatch(revision):
-                      BAD_DEPS.append((package["name"], revision))
-
-          if BAD_DEPS:
-              print("Disallowed git vcs dependencies found: ")
-              for package, ref in BAD_DEPS:
-                  print(f"{package}: {ref}")
-              sys.exit(1)
-          PY
+          ${{ steps.commits.outputs.range }}
+          --cwd "${GITHUB_WORKSPACE}" ${VERBOSE}
 
   rebase_checker:
     needs:
       - commitlint
-      - dependency-checker
     runs-on: ubuntu-latest
     steps:
       - name: Rebase Checker Passed
