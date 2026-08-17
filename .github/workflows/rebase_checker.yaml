@@ -1,33 +1,157 @@
-name: "Check that the 'main' branch was not merged into the development branch"
-on:
+---
+name: Commitlint
+
+"on":
   workflow_call:
+    inputs:
+      lint-commits:
+        description: >-
+          Lint commit messages in current branch or PR according to conventional-commit
+          or custom rules (see `custom-rules` input).
+        type: boolean
+        required: false
+        default: false
+      rebase-checker:
+        description: >-
+          Check for merge commits of main or master into this branch, encouraging rebase behavior instead.
+        type: boolean
+        required: false
+        default: true
+      do-not-merge-checker:
+        description: >-
+          Check for explicit "DO NOT MERGE" commit messages
+        type: boolean
+        required: false
+        default: false
+      custom-rules:
+        description: >-
+          Custom rules module to use with lint-commits
+          (relative path to file in calling repository, e.g., `.github/config.ts`)
+        type: string
+        required: false
+        default: ""
+      verbose:
+        description: Whether to run `commitlint` commands with the `--verbose` flag.
+        type: boolean
+        required: false
+        default: false
+      workflow-repo:
+        description: >-
+          The name of the workflow repository (i.e., the repository hosting
+          this workflow and its tooling).
+        type: string
+        required: false
+        default: "lsst/rubin_workflows"
+      workflow-ref:
+        description: >-
+          The branch name in the workflow repository from which the tooling
+          should be used.
+        type: string
+        required: false
+        default: "main"
 
 jobs:
-  rebase-checker:
+  commitlint:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check that 'main' or backport branch 'vX.Y.x' are not merged into the development branch
-        uses: gsactions/commit-message-checker@v2
+      - name: Checkout caller repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
-          excludeDescription: "true"  # optional: this excludes the description body of a pull request
-          excludeTitle: "true"  # optional: this excludes the title of a pull request
-          checkAllCommitMessages: "true"  # optional: this checks all commits associated with a pull request
-          accessToken: ${{ secrets.GITHUB_TOKEN }}  # github access token is only required if checkAllCommitMessages is true
-          # Check for patterns that emerge from
-          # 1) git pull origin main
-          # 2) git pull origin vX.Y.x (backport branch)
-          # 3) hitting "Update branch" button on GitHub.
-          pattern: ^(?!Merge branch '(main|v\d+\.\d+\.x)')
-          error: |
-            "This step failed because you merged the 'main' or release backport branch 'vX.Y.x' into the development branch,
-             likely by clicking the 'Update branch' button on the GitHub pull request page.
+          fetch-depth: 0
 
-             In order to bring this pull request to a mergeable state,
-             update the 'main' or backport branch locally and rebase against it.
-             See https://developer.lsst.io/work/flow.html#pushing-code for detailed instructions.
+      - name: Checkout workflow repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          repository: ${{ inputs.workflow-repo}}
+          ref: ${{ inputs.workflow-ref }}
+          path: .wf
+          sparse-checkout: |
+            commitlint
 
-             To avoid this error in the future, rebase against the latest 'main' or backport branch
-             by following the instructions above, or
-             use the little down arrow on the right side of 'Update branch' and click
-             'Update with rebase' option."
+      - name: Set workflow variables
+        run: |
+          WF_PATH=.wf/commitlint
+          echo "WF_PATH=${WF_PATH}" >> $GITHUB_ENV
+          if [[ -n '${{ inputs.custom-rules }}' ]]
+          then
+            CUSTOM_RULES='${{ inputs.custom-rules }}'
+            EXT="${CUSTOM_RULES##*.}"
+            cp "${GITHUB_WORKSPACE}/${CUSTOM_RULES}" "${WF_PATH}/custom-rules.${EXT}"
+            echo "COMMITLINT_CONFIG=--extends=./${WF_PATH}/custom-rules.${EXT}" >> $GITHUB_ENV
+          else
+            echo "COMMITLINT_CONFIG=--default-config" >> $GITHUB_ENV
+          fi
+
+          if [[ '${{ inputs.verbose }}' = 'true' ]]
+          then
+            echo "VERBOSE=--verbose" >> $GITHUB_ENV
+          else
+            echo "VERBOSE=" >> $GITHUB_ENV
+          fi
+
+      - name: Determine commit range
+        id: commits
+        run: |
+          if [[ '${{ github.event_name }}' == "pull_request" ]]; then
+            HEAD='${{ github.event.pull_request.head.sha }}'
+            BASE='${{ github.event.pull_request.base.sha }}'
+          elif [[ '${{ github.event_name }}' == "push" ]]; then
+            MAIN='origin/${{ github.event.repository.default_branch }}'
+            BRANCH='${{ github.ref_name }}'
+            HEAD='${{ github.event.after }}'
+            BASE="$(git log "${MAIN}".."${BRANCH}" --oneline --format=%H | tail -1)"
+          fi
+          if [[ "${BASE}" == "${HEAD}" ]]; then
+            RANGE="--last"
+          else
+            RANGE="--from ${BASE} --to ${HEAD}"
+          fi
+          echo "range=${RANGE}" >> $GITHUB_OUTPUT
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2.2.0
+        with:
+          bun-version: 1.3.14
+
+      - name: Install commitlint
+        working-directory: ${{ env.WF_PATH }}
+        run: >
+          bun install --production --frozen-lockfile --no-save
+
+      - name: Rebase Checker (PR Branch must be rebased, not merged into)
+        if: inputs.rebase-checker
+        working-directory: ${{ env.WF_PATH }}
+        run: >
+          bunx --no-install --bun
+          commitlint
+          --config "${WF_PATH}/commitlint-rebase-checker.config.mjs"
+          ${{ steps.commits.outputs.range }}
+          --cwd "${GITHUB_WORKSPACE}" ${VERBOSE}
+
+      - name: Do Not Merge Checker
+        if: inputs.do-not-merge-checker
+        working-directory: ${{ env.WF_PATH }}
+        run: >
+          bunx --no-install --bun
+          commitlint
+          --config "${WF_PATH}/commitlint-do-not-merge.config.mjs"
+          ${{ steps.commits.outputs.range }}
+          --cwd "${GITHUB_WORKSPACE}" ${VERBOSE}
+
+      - name: Validate Commits as Conventional Commits
+        if: inputs.lint-commits
+        working-directory: ${{ env.WF_PATH }}
+        run: >
+          bunx --no-install --bun
+          commitlint
+          "${COMMITLINT_CONFIG}"
+          ${{ steps.commits.outputs.range }}
+          --cwd "${GITHUB_WORKSPACE}" ${VERBOSE}
+
+  rebase_checker:
+    needs:
+      - commitlint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rebase Checker Passed
+        run: echo "Commit and dependency hygiene tests passed"
+    
